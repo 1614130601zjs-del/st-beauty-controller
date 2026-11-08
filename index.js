@@ -202,7 +202,7 @@ function renderPanel() {
     // 将面板根节点挂到 documentElement，绕开 body 及酒馆内容容器可能建立的 fixed 定位上下文。
     document.documentElement.append(root);
     state.panel = root;
-    const attached = root.isConnected && root.parentNode === document.body;
+    const attached = root.isConnected && root.parentNode === document.documentElement;
     const panel = root.querySelector('.sbc-panel');
     const rootStyle = getComputedStyle(root);
     const panelStyle = panel ? getComputedStyle(panel) : null;
