@@ -1,5 +1,5 @@
 .sbc-root{position:fixed;inset:0;z-index:2147483644;pointer-events:none;font-family:inherit;color:var(--SmartThemeBodyColor,#eee)}
-.sbc-panel{pointer-events:auto;position:absolute;right:18px;top:50%;transform:translateY(-50%);width:min(360px,calc(100vw - 28px));max-height:85vh;overflow:auto;padding:16px;background:var(--SmartThemeBlurTintColor,rgba(24,24,28,.96));border:1px solid var(--SmartThemeBorderColor,rgba(255,255,255,.16));border-radius:14px;box-shadow:0 12px 40px #0006;backdrop-filter:blur(18px)}
+.sbc-panel{pointer-events:auto;position:fixed;right:18px;top:50%;transform:translateY(-50%);width:min(360px,calc(100vw - 28px));max-height:85vh;overflow:auto;padding:16px;background:var(--SmartThemeBlurTintColor,rgba(24,24,28,.96));border:1px solid var(--SmartThemeBorderColor,rgba(255,255,255,.16));border-radius:14px;box-shadow:0 12px 40px #0006;backdrop-filter:blur(18px)}
 .sbc-panel header,.sbc-panel footer,.sbc-actions,.sbc-layers{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .sbc-panel header{margin-bottom:14px}.sbc-panel header strong{font-size:18px}.sbc-subtitle{display:block;opacity:.62;font-size:11px;margin-top:4px}
 .sbc-panel button,.sbc-upload{border:1px solid var(--SmartThemeBorderColor, #777);border-radius:8px;padding:7px 10px;background:transparent;color:inherit;font:inherit;cursor:pointer}
