@@ -1,0 +1,14 @@
+.sbc-root{position:fixed;inset:0;z-index:2147483644;pointer-events:none;font-family:inherit;color:var(--SmartThemeBodyColor,#eee)}
+.sbc-panel{pointer-events:auto;position:absolute;right:18px;top:50%;transform:translateY(-50%);width:min(360px,calc(100vw - 28px));max-height:85vh;overflow:auto;padding:16px;background:var(--SmartThemeBlurTintColor,rgba(24,24,28,.96));border:1px solid var(--SmartThemeBorderColor,rgba(255,255,255,.16));border-radius:14px;box-shadow:0 12px 40px #0006;backdrop-filter:blur(18px)}
+.sbc-panel header,.sbc-panel footer,.sbc-actions,.sbc-layers{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sbc-panel header{margin-bottom:14px}.sbc-panel header strong{font-size:18px}.sbc-subtitle{display:block;opacity:.62;font-size:11px;margin-top:4px}
+.sbc-panel button,.sbc-upload{border:1px solid var(--SmartThemeBorderColor, #777);border-radius:8px;padding:7px 10px;background:transparent;color:inherit;font:inherit;cursor:pointer}
+.sbc-panel header button{font-size:20px;padding:2px 9px}.sbc-actions{flex-wrap:wrap}.sbc-primary{background:var(--SmartThemeQuoteColor,#555)!important}
+.sbc-upload{display:inline-flex;align-items:center}.sbc-selected{font-size:12px;opacity:.7;padding:13px 0}
+.sbc-layers{border-bottom:1px solid #8885;padding-bottom:10px}.sbc-layers button{flex:1;font-size:12px}.sbc-layers button.active{background:var(--SmartThemeQuoteColor,#555);border-color:transparent}
+.sbc-controls{padding:14px 0}.sbc-controls label{display:grid;grid-template-columns:1fr auto;gap:8px;margin:12px 0;font-size:13px}.sbc-controls output{opacity:.7;font-variant-numeric:tabular-nums}.sbc-controls input{grid-column:1/-1;width:100%;accent-color:var(--SmartThemeQuoteColor,#aaa)}
+.sbc-panel footer{font-size:11px;opacity:.72}.sbc-panel footer button{font-size:11px}
+.sbc-picker{position:fixed;inset:0;z-index:2147483645;background:rgba(0,0,0,.08);cursor:crosshair;pointer-events:none}
+.sbc-picker span{position:fixed;top:12px;left:50%;transform:translateX(-50%);padding:9px 14px;border-radius:8px;background:#171717;color:#fff;font-size:13px;box-shadow:0 3px 16px #0005}
+.sbc-highlight{position:fixed;z-index:2147483646;border:2px solid #d6d6d6;background:#fff1;box-shadow:0 0 0 9999px #0001;pointer-events:none}
+@media(max-width:600px){.sbc-panel{right:10px;left:10px;top:auto;bottom:12px;transform:none;width:auto;max-height:75vh}}
