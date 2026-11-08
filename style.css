@@ -1,14 +1,34 @@
 .sbc-root{position:fixed;inset:0;z-index:2147483644;pointer-events:none;font-family:inherit;color:var(--SmartThemeBodyColor,#eee)}
-.sbc-panel{pointer-events:auto;position:absolute;right:18px;top:50%;transform:translateY(-50%);width:min(360px,calc(100vw - 28px));max-height:85vh;overflow:auto;padding:16px;background:var(--SmartThemeBlurTintColor,rgba(24,24,28,.96));border:1px solid var(--SmartThemeBorderColor,rgba(255,255,255,.16));border-radius:14px;box-shadow:0 12px 40px #0006;backdrop-filter:blur(18px)}
-.sbc-panel header,.sbc-panel footer,.sbc-actions,.sbc-layers{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.sbc-panel header{margin-bottom:14px}.sbc-panel header strong{font-size:18px}.sbc-subtitle{display:block;opacity:.62;font-size:11px;margin-top:4px}
-.sbc-panel button,.sbc-upload{border:1px solid var(--SmartThemeBorderColor, #777);border-radius:8px;padding:7px 10px;background:transparent;color:inherit;font:inherit;cursor:pointer}
-.sbc-panel header button{font-size:20px;padding:2px 9px}.sbc-actions{flex-wrap:wrap}.sbc-primary{background:var(--SmartThemeQuoteColor,#555)!important}
-.sbc-upload{display:inline-flex;align-items:center}.sbc-selected{font-size:12px;opacity:.7;padding:13px 0}
-.sbc-layers{border-bottom:1px solid #8885;padding-bottom:10px}.sbc-layers button{flex:1;font-size:12px}.sbc-layers button.active{background:var(--SmartThemeQuoteColor,#555);border-color:transparent}
+/* 面板直接挂在 body 上、用 position:fixed 自行居中，不依赖父级包裹层的尺寸——
+   这是弹窗定位问题的根因修复：此前 .sbc-root 的 inset:0 在部分移动端 WebView 里
+   不生效，导致包裹层塌缩成 0 尺寸，内部 absolute 面板因此被定位到屏幕外。 */
+body > .sbc-panel{pointer-events:auto;position:fixed;z-index:2147483644;left:50%;top:50dvh;right:auto;bottom:auto;transform:translate3d(-50%,-50%,0);width:min(380px,calc(100vw - 20px));max-height:calc(100dvh - max(28px,env(safe-area-inset-top) + env(safe-area-inset-bottom)));overflow:auto;overscroll-behavior:contain;box-sizing:border-box;padding:16px;background:var(--SmartThemeBlurTintColor,rgba(24,24,28,.96));border:1px solid var(--SmartThemeBorderColor,rgba(255,255,255,.16));border-radius:14px;box-shadow:0 12px 40px #0006;backdrop-filter:blur(18px)}
+.sbc-panel header,.sbc-panel footer,.sbc-actions,.sbc-layers,.sbc-theme{display:flex;align-items:center;gap:8px}
+.sbc-panel header{justify-content:space-between;margin-bottom:14px}.sbc-panel header strong{font-size:18px}.sbc-subtitle{display:block;opacity:.62;font-size:11px;margin-top:4px}
+.sbc-panel button,.sbc-upload{border:1px solid var(--SmartThemeBorderColor, #777);border-radius:8px;padding:7px 10px;background:transparent;color:inherit;font:inherit;cursor:pointer;font-size:12px}
+.sbc-panel header button{font-size:20px;padding:2px 9px;border:none}
+.sbc-actions{flex-wrap:wrap;margin-bottom:10px}.sbc-primary{background:var(--SmartThemeQuoteColor,#555)!important}
+.sbc-upload{display:inline-flex;align-items:center}
+.sbc-hint{font-size:12px;opacity:.6;text-align:center;padding:18px 6px;margin:0}
+
+.sbc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px;max-height:220px;overflow:auto;padding:4px;margin-bottom:10px;border:1px solid #8884;border-radius:10px}
+.sbc-grid-item{position:relative;aspect-ratio:1;padding:0;border-radius:8px;overflow:hidden;display:flex;align-items:flex-end}
+.sbc-grid-item img{width:100%;height:100%;object-fit:cover;display:block}
+.sbc-grid-item span{position:relative;z-index:1;font-size:10px;width:100%;padding:3px 4px;background:#0008;color:#fff;text-align:left}
+.sbc-grid-empty{width:100%;text-align:center;padding:14px 2px;opacity:.6;background:none}
+.sbc-grid-item--edited{outline:2px solid var(--SmartThemeQuoteColor,#8bd)}
+
+.sbc-theme{flex-wrap:wrap;padding:10px 0;border-top:1px solid #8885}
+.sbc-theme-select{flex:1 1 auto;min-width:96px;border-radius:8px;border:1px solid var(--SmartThemeBorderColor,#777);background:transparent;color:inherit;font:inherit;padding:6px}
+.sbc-divider{display:none}
+
+.sbc-selected{font-size:12px;opacity:.7;padding:10px 0}
+.sbc-layers{border-bottom:1px solid #8885;padding-bottom:10px;justify-content:space-between}.sbc-layers button{flex:1;font-size:12px}.sbc-layers button.active{background:var(--SmartThemeQuoteColor,#555);border-color:transparent}
 .sbc-controls{padding:14px 0}.sbc-controls label{display:grid;grid-template-columns:1fr auto;gap:8px;margin:12px 0;font-size:13px}.sbc-controls output{opacity:.7;font-variant-numeric:tabular-nums}.sbc-controls input{grid-column:1/-1;width:100%;accent-color:var(--SmartThemeQuoteColor,#aaa)}
-.sbc-panel footer{font-size:11px;opacity:.72}.sbc-panel footer button{font-size:11px}
+.sbc-panel footer{font-size:11px;opacity:.72;justify-content:space-between}.sbc-panel footer button{font-size:11px}
+
 .sbc-picker{position:fixed;inset:0;z-index:2147483645;background:rgba(0,0,0,.08);cursor:crosshair;pointer-events:none}
 .sbc-picker span{position:fixed;top:12px;left:50%;transform:translateX(-50%);padding:9px 14px;border-radius:8px;background:#171717;color:#fff;font-size:13px;box-shadow:0 3px 16px #0005}
 .sbc-highlight{position:fixed;z-index:2147483646;border:2px solid #d6d6d6;background:#fff1;box-shadow:0 0 0 9999px #0001;pointer-events:none}
-@media(max-width:600px){.sbc-panel{right:10px;left:10px;top:auto;bottom:12px;transform:none;width:auto;max-height:75vh}}
+
+@media(max-width:600px){body > .sbc-panel{padding:12px}}
