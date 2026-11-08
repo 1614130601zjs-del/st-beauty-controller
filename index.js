@@ -202,7 +202,13 @@ function renderPanel() {
     document.body.append(root);
     state.panel = root;
     const attached = root.isConnected && root.parentNode === document.body;
+    const panel = root.querySelector('.sbc-panel');
+    const rootStyle = getComputedStyle(root);
+    const panelStyle = panel ? getComputedStyle(panel) : null;
+    const rect = panel?.getBoundingClientRect();
     window.toastr?.info?.(`[美化调节测试] 路标 3：面板 append 后${attached ? '已在' : '不在'} document.body`);
+    window.toastr?.info?.(`[美化调节诊断] root显示=${rootStyle.display}/${rootStyle.visibility}/${rootStyle.opacity}；z=${rootStyle.zIndex}`);
+    window.toastr?.info?.(`[美化调节诊断] panel=${!!panel}；显示=${panelStyle?.display}/${panelStyle?.visibility}/${panelStyle?.opacity}；尺寸=${Math.round(rect?.width || 0)}×${Math.round(rect?.height || 0)}；坐标=${Math.round(rect?.left || 0)},${Math.round(rect?.top || 0)}`);
     window.toastr?.info?.('[美化调节测试] 路标 4：renderPanel() 已执行到最后，准备 return');
     return root;
 }
@@ -294,15 +300,19 @@ function mount() {
     button.innerHTML = '<i class="fa-solid fa-sliders"></i><span>美化调节</span>';
     const openPanel = (event) => {
         window.toastr?.info?.('[美化调节测试] 路标 1：美化调节按钮 click/键盘入口已触发');
+        const existingRoots = document.querySelectorAll('.sbc-root');
+        window.toastr?.info?.(`[美化调节诊断] state.panel连接=${!!state.panel?.isConnected}；页面.sbc-root数量=${existingRoots.length}`);
         event.preventDefault();
         // 面板挂在 body 上；允许酒馆正常关闭魔法棒菜单，面板会独立保留。
         try {
             if (state.panel?.isConnected) {
+                window.toastr?.warning?.('[美化调节诊断] 当前点击进入关闭分支：state.panel 仍连接在页面中');
                 state.panel.remove();
                 state.panel = null;
                 stopPicking();
                 return;
             }
+            window.toastr?.info?.('[美化调节诊断] 当前点击进入创建分支：没有连接中的 state.panel');
             state.panel?.remove();
             state.panel = null;
             renderPanel();
