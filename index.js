@@ -308,10 +308,20 @@ function mount() {
             window.toastr?.error?.('美化调节面板打开失败，请查看控制台错误');
         }
     };
-    button.addEventListener('click', openPanel);
-    button.addEventListener('keydown', event => {
-        if (event.key === 'Enter' || event.key === ' ') openPanel(event);
-    });
+    // 在 document 捕获阶段接管点击，早于酒馆绑定在 html 上的菜单关闭监听器。
+    if (!window.__sbcWandClickBound) {
+        window.__sbcWandClickBound = true;
+        document.addEventListener('click', event => {
+            const target = event.target instanceof Element ? event.target.closest('#sbc-magic-button') : null;
+            if (!target) return;
+            openPanel(event);
+        }, true);
+        document.addEventListener('keydown', event => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            const target = event.target instanceof Element ? event.target.closest('#sbc-magic-button') : null;
+            if (target) openPanel(event);
+        }, true);
+    }
     const container = document.createElement('div');
     container.id = 'sbc-wand-container';
     container.className = 'extension_container';
