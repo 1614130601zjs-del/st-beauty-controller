@@ -12,3 +12,6 @@ body > .sbc-panel{pointer-events:auto;position:fixed;z-index:2147483644;left:50%
 .sbc-picker span{position:fixed;top:12px;left:50%;transform:translateX(-50%);padding:9px 14px;border-radius:8px;background:#171717;color:#fff;font-size:13px;box-shadow:0 3px 16px #0005}
 .sbc-highlight{position:fixed;z-index:2147483646;border:2px solid #d6d6d6;background:#fff1;box-shadow:0 0 0 9999px #0001;pointer-events:none}
 @media(max-width:600px){body > .sbc-panel{padding:12px}}
+.sbc-scan-layer{position:fixed;inset:0;z-index:2147483646;pointer-events:none}
+.sbc-scan-target{position:fixed;display:block;margin:0;padding:0;border:2px solid rgba(255,255,255,.0);border-radius:2px;background:rgba(255,255,255,.015);box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);pointer-events:auto;cursor:pointer;touch-action:manipulation}
+.sbc-scan-target:active,.sbc-scan-target:focus-visible{border-color:var(--SmartThemeQuoteColor,#ddd);background:rgba(255,255,255,.12);outline:none}
