@@ -3,7 +3,7 @@ import { saveSettingsDebounced } from '/script.js';
 
 const EXT = 'stBeautyController';
 const defaults = { enabled: true, adjustments: {}, images: {} };
-const state = { picking: false, hit: null, panel: null, original: null, activeLayer: 'background' };
+const state = { picking: false, hit: null, panel: null, original: null, activeLayer: 'background', scanLayer: null, scanObserver: null, scanRaf: 0 };
 const cfg = () => {
     if (!extension_settings[EXT]) extension_settings[EXT] = structuredClone(defaults);
     const c = extension_settings[EXT];
@@ -170,7 +170,7 @@ function renderPanel() {
     root.innerHTML = `
       <section class="sbc-panel" role="dialog" aria-label="美化调节">
         <header><div><strong>美化调节</strong><small class="sbc-subtitle">选中页面元素，调整图片与色彩</small></div><button type="button" data-action="close" aria-label="关闭">×</button></header>
-        <div class="sbc-actions"><button type="button" class="sbc-primary" data-action="pick">选择页面图片</button><label class="sbc-upload">替换为本地图片<input type="file" accept="image/*" hidden></label><button type="button" data-action="restore">恢复原图</button></div>
+        <div class="sbc-actions"><button type="button" class="sbc-primary" data-action="scan">扫描聊天图片</button><button type="button" data-action="pick">手动选择</button><label class="sbc-upload">替换为本地图片<input type="file" accept="image/*" hidden></label><button type="button" data-action="restore">恢复原图</button></div>
         <div class="sbc-selected">尚未选择元素</div>
         <nav class="sbc-layers">
           <button type="button" data-layer="background" class="active">背景层</button>
@@ -190,7 +190,8 @@ function renderPanel() {
         const button = e.target.closest('button');
         if (!button) return;
         const action = button.dataset.action;
-        if (action === 'close') { stopPicking(); panel.remove(); state.panel = null; }
+        if (action === 'close') { stopPicking(); stopScan(); panel.remove(); state.panel = null; }
+        if (action === 'scan') startScan();
         if (action === 'pick') startPicking();
         if (action === 'restore') restoreOriginal();
         if (action === 'reset' && state.hit) {
@@ -260,6 +261,98 @@ function syncPanel() {
         state.panel.querySelector(`[data-value="${field}"]`).textContent = field === 'hue' ? a[field] + '°' : a[field] + '%';
     }
 }
+function selectHit(hit) {
+    if (!hit) return;
+    stopPicking();
+    stopScan();
+    state.hit = hit;
+    state.original = null;
+    state.panel.querySelector('.sbc-selected').textContent = '正在读取原图…';
+    ddSourceOf(hit).then(source => {
+        state.original = source;
+        const label = hit.kind === 'img' ? '图片元素' : hit.kind === 'bg' ? '背景图片' : hit.kind === 'canvas' ? 'Canvas 图片' : 'SVG 图片';
+        state.panel?.querySelector('.sbc-selected') && (state.panel.querySelector('.sbc-selected').textContent = '已选中：' + label);
+        syncPanel();
+    });
+}
+function scanHitFor(el) {
+    const tag = el.tagName;
+    if (tag === 'IMG' && (el.currentSrc || el.src)) return { kind: 'img', el, ox: 0, oy: 0 };
+    if (tag === 'CANVAS') return { kind: 'canvas', el, ox: 0, oy: 0 };
+    if (tag === 'image') {
+        const href = el.getAttribute('href') || el.getAttribute('xlink:href');
+        if (href) return { kind: 'svgimg', el, href, ox: 0, oy: 0 };
+    }
+    const url = ddBgUrl(el);
+    return url ? { kind: 'bg', el, url, ox: 0, oy: 0 } : null;
+}
+function scanChatTargets() {
+    const chat = document.querySelector('#chat');
+    if (!chat) return [];
+    const found = new Map();
+    const candidates = chat.querySelectorAll('.mes img,.mes canvas,.mes svg image,.mes [style*="background"],.mes [class]');
+    for (const el of candidates) {
+        if (el.closest('.sbc-panel,.sbc-scan-layer,.sbc-picker,.sbc-highlight')) continue;
+        const hit = scanHitFor(el);
+        if (!hit) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width < 8 || r.height < 8 || r.bottom < 0 || r.right < 0 || r.top > innerHeight || r.left > innerWidth) continue;
+        if (el.tagName === 'IMG' && el.loading === 'lazy' && !el.currentSrc && !el.src) continue;
+        found.set(el, hit);
+    }
+    return [...found.values()];
+}
+function positionScanTargets() {
+    if (!state.scanLayer?.isConnected) return;
+    state.scanLayer.replaceChildren();
+    const hits = scanChatTargets();
+    for (const hit of hits) {
+        const r = hit.el.getBoundingClientRect();
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'sbc-scan-target';
+        b.setAttribute('aria-label', '选择这张图片');
+        b.title = '选择图片';
+        b.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`;
+        b.addEventListener('click', e => {
+            e.preventDefault(); e.stopPropagation();
+            selectHit(hit);
+        });
+        state.scanLayer.append(b);
+    }
+    const count = hits.length;
+    state.panel?.querySelector('.sbc-selected') && (state.panel.querySelector('.sbc-selected').textContent = count ? `已扫描 ${count} 张图片，点击图片位置进行选择` : '当前聊天没有找到可选图片');
+}
+function scheduleScanPosition() {
+    if (state.scanRaf) return;
+    state.scanRaf = requestAnimationFrame(() => { state.scanRaf = 0; positionScanTargets(); });
+}
+function stopScan() {
+    state.scanObserver?.disconnect();
+    state.scanObserver = null;
+    state.scanLayer?.remove();
+    state.scanLayer = null;
+    if (state.scanRaf) cancelAnimationFrame(state.scanRaf);
+    state.scanRaf = 0;
+    window.removeEventListener('scroll', scheduleScanPosition, true);
+    window.removeEventListener('resize', scheduleScanPosition, true);
+}
+function startScan() {
+    stopPicking();
+    stopScan();
+    const layer = document.createElement('div');
+    layer.className = 'sbc-scan-layer';
+    document.body.append(layer);
+    state.scanLayer = layer;
+    positionScanTargets();
+    window.addEventListener('scroll', scheduleScanPosition, true);
+    window.addEventListener('resize', scheduleScanPosition, true);
+    const chat = document.querySelector('#chat');
+    if (chat) {
+        state.scanObserver = new MutationObserver(scheduleScanPosition);
+        state.scanObserver.observe(chat, { childList: true, subtree: true, attributes: true, attributeFilter: ['src','href','style','class'] });
+    }
+}
 function stopPicking() {
     if (!state.picking) return;
     state.picking = false;
@@ -287,14 +380,10 @@ async function onPickDown(e) {
     e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
     const hit = ddFindAt(e.clientX, e.clientY);
     if (!hit) return;
-    stopPicking();
-    state.hit = hit;
-    state.original = await ddSourceOf(hit);
-    const label = hit.kind === 'img' ? '图片元素' : hit.kind === 'bg' ? '背景图片' : hit.kind === 'canvas' ? 'Canvas 图片' : 'SVG 图片';
-    state.panel.querySelector('.sbc-selected').textContent = '已选中：' + label;
-    syncPanel();
+    selectHit(hit);
 }
 function startPicking() {
+    stopScan();
     if (state.picking) return;
     state.picking = true;
     const cover = document.createElement('div');
@@ -328,6 +417,7 @@ function mount() {
                 state.panel.remove();
                 state.panel = null;
                 stopPicking();
+                stopScan();
                 return;
             }
             window.toastr?.info?.('[美化调节诊断] 当前点击进入创建分支：没有连接中的 state.panel');
