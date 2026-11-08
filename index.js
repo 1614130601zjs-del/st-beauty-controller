@@ -167,11 +167,11 @@ function renderPanel() {
         </div>
         <footer><span>调整会自动保存</span><button type="button" data-action="reset">重置当前层</button></footer>
       </section>`;
-    root.addEventListener('click', async e => {
+    panel.addEventListener('click', async e => {
         const button = e.target.closest('button');
         if (!button) return;
         const action = button.dataset.action;
-        if (action === 'close') { stopPicking(); root.remove(); state.panel = null; }
+        if (action === 'close') { stopPicking(); panel.remove(); state.panel = null; }
         if (action === 'pick') startPicking();
         if (action === 'restore') restoreOriginal();
         if (action === 'reset' && state.hit) {
@@ -185,7 +185,7 @@ function renderPanel() {
             syncPanel();
         }
     });
-    root.querySelector('input[type=file]').addEventListener('change', async e => {
+    panel.querySelector('input[type=file]').addEventListener('change', async e => {
         const file = e.target.files?.[0]; e.target.value = '';
         if (!file || !state.hit) return;
         const key = targetKey(state.hit.el);
@@ -198,19 +198,16 @@ function renderPanel() {
             root.querySelector('.sbc-selected').textContent = '已替换：' + file.name;
         } catch (err) { console.error('[美化调节] 图片保存失败', err); }
     });
-    root.querySelectorAll('[data-field]').forEach(input => input.addEventListener('input', () => setControl(state.activeLayer, input.dataset.field, input.value)));
-    // 将面板根节点挂到 documentElement，绕开 body 及酒馆内容容器可能建立的 fixed 定位上下文。
-    document.documentElement.append(root);
-    state.panel = root;
-    const attached = root.isConnected && root.parentNode === document.documentElement;
+    panel.querySelectorAll('[data-field]').forEach(input => input.addEventListener('input', () => setControl(state.activeLayer, input.dataset.field, input.value)));
     const panel = root.querySelector('.sbc-panel');
-    const rootStyle = getComputedStyle(root);
-    const panelStyle = panel ? getComputedStyle(panel) : null;
-    const rect = panel?.getBoundingClientRect();
-    const rootRect = root.getBoundingClientRect();
-    window.toastr?.info?.(`[美化调节测试] 路标 3：面板 append 后${attached ? '已在' : '不在'} document.documentElement`);
-    window.toastr?.info?.(`[美化调节诊断] 视口=${window.innerWidth}×${window.innerHeight}；root坐标=${Math.round(rootRect.left)},${Math.round(rootRect.top)}；panel定位=${panelStyle?.position}；top=${panelStyle?.top}；bottom=${panelStyle?.bottom}`);
-    window.toastr?.info?.(`[美化调节诊断] root显示=${rootStyle.display}/${rootStyle.visibility}/${rootStyle.opacity}；z=${rootStyle.zIndex}`);
+    // 复用火🚫热已验证的居中方式：面板本身直接挂到 body，脱离扩展根容器。
+    document.body.append(panel);
+    state.panel = panel;
+    const attached = panel.isConnected && panel.parentNode === document.body;
+    const panelStyle = getComputedStyle(panel);
+    const rect = panel.getBoundingClientRect();
+    window.toastr?.info?.(`[美化调节测试] 路标 3：面板 append 后${attached ? '已在' : '不在'} document.body`);
+    window.toastr?.info?.(`[美化调节诊断] 视口=${window.innerWidth}×${window.innerHeight}；panel定位=${panelStyle.position}；top=${panelStyle.top}；bottom=${panelStyle.bottom}`);
     window.toastr?.info?.(`[美化调节诊断] panel=${!!panel}；显示=${panelStyle?.display}/${panelStyle?.visibility}/${panelStyle?.opacity}；尺寸=${Math.round(rect?.width || 0)}×${Math.round(rect?.height || 0)}；坐标=${Math.round(rect?.left || 0)},${Math.round(rect?.top || 0)}`);
     window.toastr?.info?.('[美化调节测试] 路标 4：renderPanel() 已执行到最后，准备 return');
     return root;
