@@ -41,6 +41,24 @@ function ddFindAt(x, y, doc = document, ox = 0, oy = 0, depth = 0) {
     for (const el of list) {
         if (el.closest?.('.sbc-panel,.sbc-picker,.sbc-highlight')) continue;
         const tag = el.tagName;
+        // Markdown/图链常见结构：<a><img ...></a>。
+        // 当图片自身因样式或命中层级未出现在 elementsFromPoint 结果中时，
+        // 从命中的链接内部反查实际覆盖点击坐标的图片。
+        if (tag === 'A') {
+            const linked = el.querySelectorAll('img, canvas, svg image');
+            for (const child of linked) {
+                const r = child.getBoundingClientRect();
+                if (x < r.left || x > r.right || y < r.top || y > r.bottom) continue;
+                if (child.tagName === 'IMG' && (child.currentSrc || child.src)) {
+                    return { kind: 'img', el: child, ox, oy };
+                }
+                if (child.tagName === 'CANVAS') return { kind: 'canvas', el: child, ox, oy };
+                if (child.tagName === 'image') {
+                    const href = child.getAttribute('href') || child.getAttribute('xlink:href');
+                    if (href) return { kind: 'svgimg', el: child, href, ox, oy };
+                }
+            }
+        }
         if (tag === 'IFRAME') {
             if (depth >= 4) continue;
             try {
