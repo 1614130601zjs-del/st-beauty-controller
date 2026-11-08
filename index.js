@@ -199,14 +199,17 @@ function renderPanel() {
         } catch (err) { console.error('[美化调节] 图片保存失败', err); }
     });
     root.querySelectorAll('[data-field]').forEach(input => input.addEventListener('input', () => setControl(state.activeLayer, input.dataset.field, input.value)));
-    document.body.append(root);
+    // 将面板根节点挂到 documentElement，绕开 body 及酒馆内容容器可能建立的 fixed 定位上下文。
+    document.documentElement.append(root);
     state.panel = root;
     const attached = root.isConnected && root.parentNode === document.body;
     const panel = root.querySelector('.sbc-panel');
     const rootStyle = getComputedStyle(root);
     const panelStyle = panel ? getComputedStyle(panel) : null;
     const rect = panel?.getBoundingClientRect();
-    window.toastr?.info?.(`[美化调节测试] 路标 3：面板 append 后${attached ? '已在' : '不在'} document.body`);
+    const rootRect = root.getBoundingClientRect();
+    window.toastr?.info?.(`[美化调节测试] 路标 3：面板 append 后${attached ? '已在' : '不在'} document.documentElement`);
+    window.toastr?.info?.(`[美化调节诊断] 视口=${window.innerWidth}×${window.innerHeight}；root坐标=${Math.round(rootRect.left)},${Math.round(rootRect.top)}；panel定位=${panelStyle?.position}；top=${panelStyle?.top}；bottom=${panelStyle?.bottom}`);
     window.toastr?.info?.(`[美化调节诊断] root显示=${rootStyle.display}/${rootStyle.visibility}/${rootStyle.opacity}；z=${rootStyle.zIndex}`);
     window.toastr?.info?.(`[美化调节诊断] panel=${!!panel}；显示=${panelStyle?.display}/${panelStyle?.visibility}/${panelStyle?.opacity}；尺寸=${Math.round(rect?.width || 0)}×${Math.round(rect?.height || 0)}；坐标=${Math.round(rect?.left || 0)},${Math.round(rect?.top || 0)}`);
     window.toastr?.info?.('[美化调节测试] 路标 4：renderPanel() 已执行到最后，准备 return');
