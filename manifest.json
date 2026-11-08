@@ -1,11 +1,11 @@
 {
-  "display_name": "美化调节",
+  "display_name": "美化管理器",
   "loading_order": 21,
   "requires": [],
   "optional": [],
   "js": "index.js",
   "css": "style.css",
   "author": "1614130601zjs-del",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "homePage": "https://github.com/1614130601zjs-del/st-beauty-controller"
 }
