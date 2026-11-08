@@ -287,9 +287,30 @@ function mount() {
     button.id = 'sbc-magic-button';
     button.className = 'list-group-item flex-container flexGap5';
     button.innerHTML = '<i class="fa-solid fa-sliders"></i><span>美化调节</span>';
-    button.addEventListener('click', () => {
-        if (state.panel) { state.panel.remove(); state.panel = null; stopPicking(); return; }
-        renderPanel();
+    button.setAttribute('role', 'button');
+    button.setAttribute('tabindex', '0');
+    const openPanel = (event) => {
+        event.preventDefault();
+        // 阻止酒馆在 html 层的点击监听器把魔法棒菜单关闭流程抢先执行。
+        event.stopPropagation();
+        try {
+            if (state.panel?.isConnected) {
+                state.panel.remove();
+                state.panel = null;
+                stopPicking();
+                return;
+            }
+            state.panel?.remove();
+            state.panel = null;
+            renderPanel();
+        } catch (error) {
+            console.error('[美化调节] 面板打开失败', error);
+            window.toastr?.error?.('美化调节面板打开失败，请查看控制台错误');
+        }
+    };
+    button.addEventListener('click', openPanel);
+    button.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') openPanel(event);
     });
     const container = document.createElement('div');
     container.id = 'sbc-wand-container';
