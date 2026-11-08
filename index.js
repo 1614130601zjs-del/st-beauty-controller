@@ -291,7 +291,11 @@ function mount() {
         if (state.panel) { state.panel.remove(); state.panel = null; stopPicking(); return; }
         renderPanel();
     });
-    menu.append(button);
+    const container = document.createElement('div');
+    container.id = 'sbc-wand-container';
+    container.className = 'extension_container';
+    container.append(button);
+    menu.append(container);
 }
 function init() {
     cfg();
