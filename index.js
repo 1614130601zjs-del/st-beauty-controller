@@ -39,7 +39,7 @@ function ddFlatList(root, x, y, depth = 0) {
 function ddFindAt(x, y, doc = document, ox = 0, oy = 0, depth = 0) {
     const list = ddFlatList(doc, x, y);
     for (const el of list) {
-        if (el.closest?.('.sbc-root,.sbc-picker,.sbc-highlight')) continue;
+        if (el.closest?.('.sbc-panel,.sbc-picker,.sbc-highlight')) continue;
         const tag = el.tagName;
         if (tag === 'IFRAME') {
             if (depth >= 4) continue;
@@ -167,6 +167,7 @@ function renderPanel() {
         </div>
         <footer><span>调整会自动保存</span><button type="button" data-action="reset">重置当前层</button></footer>
       </section>`;
+    const panel = root.querySelector('.sbc-panel');
     panel.addEventListener('click', async e => {
         const button = e.target.closest('button');
         if (!button) return;
@@ -181,7 +182,7 @@ function renderPanel() {
         }
         if (button.dataset.layer) {
             state.activeLayer = button.dataset.layer;
-            root.querySelectorAll('[data-layer]').forEach(b => b.classList.toggle('active', b === button));
+            panel.querySelectorAll('[data-layer]').forEach(b => b.classList.toggle('active', b === button));
             syncPanel();
         }
     });
@@ -195,11 +196,10 @@ function renderPanel() {
             const url = URL.createObjectURL(blob);
             replaceTarget(state.hit, url);
             cfg().images[key] = { type: file.type, name: file.name }; save();
-            root.querySelector('.sbc-selected').textContent = '已替换：' + file.name;
+            panel.querySelector('.sbc-selected').textContent = '已替换：' + file.name;
         } catch (err) { console.error('[美化调节] 图片保存失败', err); }
     });
     panel.querySelectorAll('[data-field]').forEach(input => input.addEventListener('input', () => setControl(state.activeLayer, input.dataset.field, input.value)));
-    const panel = root.querySelector('.sbc-panel');
     // 复用火🚫热已验证的居中方式：面板本身直接挂到 body，脱离扩展根容器。
     document.body.append(panel);
     state.panel = panel;
@@ -265,7 +265,7 @@ function onPickMove(e) {
     });
 }
 async function onPickDown(e) {
-    if (e.target.closest?.('.sbc-root')) return;
+    if (e.target.closest?.('.sbc-panel,.sbc-picker,.sbc-highlight')) return;
     e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
     const hit = ddFindAt(e.clientX, e.clientY);
     if (!hit) return;
