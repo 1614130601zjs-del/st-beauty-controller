@@ -287,8 +287,8 @@ function mount() {
     button.id = 'sbc-magic-button';
     button.className = 'list-group-item flex-container flexGap5';
     button.innerHTML = '<i class="fa-solid fa-sliders"></i><span>美化调节</span>';
-    button.setAttribute('role', 'button');
-    button.setAttribute('tabindex', '0');
+    button.type = 'button';
+    button.className += ' sbc-wand-button';
     const openPanel = (event) => {
         event.preventDefault();
         // 阻止酒馆在 html 层的点击监听器把魔法棒菜单关闭流程抢先执行。
@@ -308,20 +308,12 @@ function mount() {
             window.toastr?.error?.('美化调节面板打开失败，请查看控制台错误');
         }
     };
-    // 在 document 捕获阶段接管点击，早于酒馆绑定在 html 上的菜单关闭监听器。
-    if (!window.__sbcWandClickBound) {
-        window.__sbcWandClickBound = true;
-        document.addEventListener('click', event => {
-            const target = event.target instanceof Element ? event.target.closest('#sbc-magic-button') : null;
-            if (!target) return;
-            openPanel(event);
-        }, true);
-        document.addEventListener('keydown', event => {
-            if (event.key !== 'Enter' && event.key !== ' ') return;
-            const target = event.target instanceof Element ? event.target.closest('#sbc-magic-button') : null;
-            if (target) openPanel(event);
-        }, true);
-    }
+    // 直接绑定到入口本身，避免 document 全局单例监听器残留旧模块闭包。
+    button.addEventListener('click', openPanel);
+    button.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        openPanel(event);
+    });
     const container = document.createElement('div');
     container.id = 'sbc-wand-container';
     container.className = 'extension_container';
