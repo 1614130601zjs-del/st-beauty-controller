@@ -146,6 +146,7 @@ function setControl(layer, field, value) {
     if (out) out.textContent = field === 'hue' ? value + '°' : value + '%';
 }
 function renderPanel() {
+    window.toastr?.info?.('[美化调节测试] 路标 2：renderPanel() 已进入');
     const root = document.createElement('div');
     root.className = 'sbc-root';
     root.innerHTML = `
@@ -200,6 +201,9 @@ function renderPanel() {
     root.querySelectorAll('[data-field]').forEach(input => input.addEventListener('input', () => setControl(state.activeLayer, input.dataset.field, input.value)));
     document.body.append(root);
     state.panel = root;
+    const attached = root.isConnected && root.parentNode === document.body;
+    window.toastr?.info?.(`[美化调节测试] 路标 3：面板 append 后${attached ? '已在' : '不在'} document.body`);
+    window.toastr?.info?.('[美化调节测试] 路标 4：renderPanel() 已执行到最后，准备 return');
     return root;
 }
 function replaceTarget(hit, url) {
@@ -289,6 +293,7 @@ function mount() {
     button.className = 'list-group-item flex-container flexGap5 sbc-wand-button';
     button.innerHTML = '<i class="fa-solid fa-sliders"></i><span>美化调节</span>';
     const openPanel = (event) => {
+        window.toastr?.info?.('[美化调节测试] 路标 1：美化调节按钮 click/键盘入口已触发');
         event.preventDefault();
         // 面板挂在 body 上；允许酒馆正常关闭魔法棒菜单，面板会独立保留。
         try {
