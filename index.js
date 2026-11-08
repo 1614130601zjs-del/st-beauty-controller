@@ -283,16 +283,14 @@ function mount() {
     if (document.querySelector('#sbc-magic-button')) return;
     const menu = document.querySelector('#extensionsMenu');
     if (!menu) return;
-    const button = document.createElement('div');
-    button.id = 'sbc-magic-button';
-    button.className = 'list-group-item flex-container flexGap5';
-    button.innerHTML = '<i class="fa-solid fa-sliders"></i><span>美化调节</span>';
+    const button = document.createElement('button');
     button.type = 'button';
-    button.className += ' sbc-wand-button';
+    button.id = 'sbc-magic-button';
+    button.className = 'list-group-item flex-container flexGap5 sbc-wand-button';
+    button.innerHTML = '<i class="fa-solid fa-sliders"></i><span>美化调节</span>';
     const openPanel = (event) => {
         event.preventDefault();
-        // 阻止酒馆在 html 层的点击监听器把魔法棒菜单关闭流程抢先执行。
-        event.stopPropagation();
+        // 面板挂在 body 上；允许酒馆正常关闭魔法棒菜单，面板会独立保留。
         try {
             if (state.panel?.isConnected) {
                 state.panel.remove();
