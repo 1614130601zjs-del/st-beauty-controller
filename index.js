@@ -44,8 +44,9 @@ function ddBgUrl(el) {
     try { bi = win.getComputedStyle(el).backgroundImage; } catch { return ''; }
     const m = /url\((['"]?)(.*?)\1\)/.exec(bi || '');
     if (!m || !m[2]) return '';
-    const r = el.getBoundingClientRect();
-    if (r.width * r.height > .9 * win.innerWidth * win.innerHeight) return '';
+    // 注：不再按"面积占屏幕90%以上就跳过"排除大图——这是从 duangduang 挪过来的
+    // 逻辑，duangduang 的场景是找聊天里的小插图，排除整屏背景合理；但这里反过来，
+    // 美化皮肤自己的通栏/满屏背景图恰恰是最常见、最需要能被管理到的装饰图。
     try { return new URL(m[2], el.ownerDocument.baseURI).href; } catch { return m[2]; }
 }
 function ddFlatList(root, x, y, depth = 0) {
@@ -423,7 +424,12 @@ function renderManagerGrid(panel) {
         return;
     }
     if (!state.scanHits.length) {
-        grid.innerHTML = '<p class="sbc-hint">没有扫描到装饰图片，试试"手动选择"直接在页面上点</p>';
+        const styleEl = document.getElementById('custom-style');
+        const cssLen = styleEl?.textContent?.trim().length || 0;
+        const diag = cssLen
+            ? `已读到"自定义CSS"里 ${cssLen} 个字符，但没解析出带图片的规则`
+            : '"自定义CSS"(设置→用户设置)现在是空的，美化可能是用别的方式注入的';
+        grid.innerHTML = `<p class="sbc-hint">没有扫描到装饰图片，试试"手动选择"直接在页面上点。<br>诊断：${diag}</p>`;
         return;
     }
     for (const hit of state.scanHits) {
