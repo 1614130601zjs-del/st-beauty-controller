@@ -133,12 +133,16 @@ async function ddSourceOf(hit) {
 // Canvas 没有可比较的原始 URL，退化为本次会话内的随机 id（不持久化，仅标注）。
 // ============================================================
 function originalUrlOf(hit) {
+    if (hit.kind === 'css') return hit.url || '';
     if (hit.kind === 'img') return hit.el.currentSrc || hit.el.src || '';
     if (hit.kind === 'bg') return hit.url || '';
     if (hit.kind === 'svgimg') return hit.href || '';
     return '';
 }
 function targetKey(hit) {
+    // CSS 规则来源的命中，用"选择器+属性"当 key——比 URL 更稳，同一条规则
+    // 换图之后 URL 会变，但选择器+属性不会变，刷新/切皮肤后还能对上号。
+    if (hit.kind === 'css') return 'c:' + hit.selector + '|' + hit.property;
     const url = originalUrlOf(hit);
     if (url) return 'u:' + url;
     if (!hit.el.dataset.sbcId) hit.el.dataset.sbcId = 'sbc-' + Math.random().toString(36).slice(2, 10);
@@ -209,8 +213,76 @@ function replaceTarget(hit, url) {
 }
 
 // ============================================================
+// CSS 规则覆盖层：直接读酒馆"自定义CSS"(#custom-style，即
+// power_user.custom_css)的样式表源码，把换图/调色写成一条新规则，
+// 追加到我们自己的 <style id="sbc-override-style">，用 !important
+// 盖过原规则。比逐个 DOM 元素去改更稳：原选择器以后匹配到的任何
+// 元素(包括还没渲染出来的、:hover、::before/::after 这类根本点
+// 不到的伪元素)都会自动吃到这条覆盖规则，不需要监听 DOM 变化重新套用。
+// ============================================================
+const objectUrlCache = new Map();
+function invalidateReplacementUrl(key) {
+    const existing = objectUrlCache.get(key);
+    if (existing) { try { URL.revokeObjectURL(existing); } catch {} }
+    objectUrlCache.delete(key);
+}
+async function getReplacementUrl(key) {
+    if (objectUrlCache.has(key)) return objectUrlCache.get(key);
+    try {
+        const blob = await readImage(key);
+        if (!blob) return '';
+        const url = URL.createObjectURL(blob);
+        objectUrlCache.set(key, url);
+        return url;
+    } catch { return ''; }
+}
+function cssFilterString(key) {
+    const layers = ['background', 'decoration', 'overall'].map(layer => getAdjustment(key, layer));
+    const hue = layers.reduce((n, a) => n + Number(a.hue || 0), 0);
+    const sat = layers.reduce((n, a) => n * Number(a.saturation || 100) / 100, 1) * 100;
+    const bright = layers.reduce((n, a) => n * Number(a.brightness || 100) / 100, 1) * 100;
+    const contrast = layers.reduce((n, a) => n * Number(a.contrast || 100) / 100, 1) * 100;
+    const parts = [];
+    if (hue) parts.push(`hue-rotate(${hue}deg)`);
+    if (sat !== 100) parts.push(`saturate(${sat}%)`);
+    if (bright !== 100) parts.push(`brightness(${bright}%)`);
+    if (contrast !== 100) parts.push(`contrast(${contrast}%)`);
+    return parts.join(' ');
+}
+async function rebuildOverrideStyle() {
+    const c = cfg();
+    const keys = new Set([...Object.keys(c.adjustments), ...Object.keys(c.images)].filter(k => k.startsWith('c:')));
+    const lines = [];
+    for (const key of keys) {
+        const rest = key.slice(2);
+        const sep = rest.lastIndexOf('|');
+        if (sep < 0) continue;
+        const selector = rest.slice(0, sep);
+        const property = rest.slice(sep + 1);
+        const decls = [];
+        if (c.images[key]) {
+            const url = await getReplacementUrl(key);
+            if (url) decls.push(`${property}: url("${url}") !important`);
+        }
+        const filter = cssFilterString(key);
+        if (filter) decls.push(`filter: ${filter} !important`);
+        if (decls.length) lines.push(`${selector} { ${decls.join('; ')}; }`);
+    }
+    let el = document.getElementById('sbc-override-style');
+    if (!el) { el = document.createElement('style'); el.id = 'sbc-override-style'; document.head.appendChild(el); }
+    el.textContent = lines.join('\n');
+}
+let overrideRaf = 0;
+function scheduleOverrideRebuild() {
+    if (overrideRaf) return;
+    overrideRaf = requestAnimationFrame(() => { overrideRaf = 0; rebuildOverrideStyle(); });
+}
+
+// ============================================================
 // 自动复用：扫描到的元素如果 key 命中已保存的换图/调色，直接套用，
 // 不需要用户重新手动点一遍——这是"刷新酒馆/切换美化后自动复用"的关键。
+// 这部分只处理 DOM 元素来源的命中；CSS 规则来源的命中由上面的覆盖层
+// 统一处理，不需要逐元素重新套用。
 // ============================================================
 async function autoApply(hit) {
     const key = targetKey(hit);
@@ -265,6 +337,71 @@ function scanPageTargets() {
 }
 
 // ============================================================
+// CSS 源扫描：直接读酒馆"自定义CSS"注入的样式表(#custom-style)，
+// 逐条规则找 background/border-image/mask/list-style-image/content
+// 里的 url(...)，连同它所在的选择器一起记下来。
+// 比逐元素扫描更准——不依赖这条规则此刻有没有元素正在用它(:hover、
+// 还没打开的弹窗、::before/::after 伪元素都抓得到)，这些是纯 DOM
+// 点选完全够不到的。跟着 @import 追一层外部样式表，深度有限，
+// 跨域且没开 CORS 的 @import 读不到内容时会跳过，不报错。
+// ============================================================
+const CSS_IMAGE_PROPS = {
+    'background-image': 'background-image',
+    'background': 'background-image',
+    'border-image': 'border-image-source',
+    'border-image-source': 'border-image-source',
+    'mask-image': 'mask-image',
+    'mask': 'mask-image',
+    '-webkit-mask-image': '-webkit-mask-image',
+    'list-style-image': 'list-style-image',
+    'content': 'content',
+};
+function extractCssImageRefs(rule, acc) {
+    if (!rule.selectorText || !rule.style) return;
+    for (const [srcProp, overrideProp] of Object.entries(CSS_IMAGE_PROPS)) {
+        let val = '';
+        try { val = rule.style.getPropertyValue(srcProp); } catch {}
+        if (!val || !val.includes('url(')) continue;
+        const re = /url\((['"]?)(.*?)\1\)/g;
+        let m;
+        while ((m = re.exec(val))) {
+            if (!m[2]) continue;
+            let abs;
+            try { abs = new URL(m[2], location.href).href; } catch { abs = m[2]; }
+            acc.push({ selector: rule.selectorText, property: overrideProp, url: abs });
+        }
+    }
+}
+function walkCssRules(container, acc, depth = 0) {
+    if (depth > 4) return;
+    let rules;
+    try { rules = container.cssRules; } catch { return; }
+    if (!rules) return;
+    for (const rule of rules) {
+        if (typeof CSSImportRule !== 'undefined' && rule instanceof CSSImportRule) {
+            if (rule.styleSheet) walkCssRules(rule.styleSheet, acc, depth + 1);
+            continue;
+        }
+        if (rule.cssRules) { walkCssRules(rule, acc, depth + 1); continue; } // @media / @supports / @layer 等分组规则
+        extractCssImageRefs(rule, acc);
+    }
+}
+function scanCssTargets() {
+    const acc = [];
+    const styleEl = document.getElementById('custom-style');
+    if (styleEl?.sheet) walkCssRules(styleEl.sheet, acc);
+    const seen = new Set();
+    const out = [];
+    for (const e of acc) {
+        const k = e.selector + '|' + e.property + '|' + e.url;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        out.push({ kind: 'css', ...e });
+    }
+    return out;
+}
+
+// ============================================================
 // 面板 UI
 // ============================================================
 function thumbFor(hit) {
@@ -275,6 +412,7 @@ function thumbFor(hit) {
     return url;
 }
 function labelFor(hit) {
+    if (hit.kind === 'css') return 'CSS·' + hit.property;
     return hit.kind === 'img' ? '图片' : hit.kind === 'bg' ? '背景图' : hit.kind === 'canvas' ? 'Canvas' : 'SVG图';
 }
 function renderManagerGrid(panel) {
@@ -347,7 +485,9 @@ function renderPanel() {
         if (action === 'theme-export') exportTheme();
         if (action === 'reset' && state.hit) {
             const all = cfg().adjustments[state.key] || {};
-            delete all[state.activeLayer]; save(); applyAdjustment(state.hit.el, state.key); syncPanel(panel);
+            delete all[state.activeLayer]; save();
+            if (state.hit.kind === 'css') scheduleOverrideRebuild(); else applyAdjustment(state.hit.el, state.key);
+            syncPanel(panel);
         }
         if (button.dataset.layer) {
             state.activeLayer = button.dataset.layer;
@@ -361,8 +501,13 @@ function renderPanel() {
         const blob = file.slice(0, file.size, file.type);
         try {
             await storeImage(state.key, blob);
-            replaceTarget(state.hit, URL.createObjectURL(blob));
             cfg().images[state.key] = { type: file.type, name: file.name }; save();
+            if (state.hit.kind === 'css') {
+                invalidateReplacementUrl(state.key);
+                await rebuildOverrideStyle();
+            } else {
+                replaceTarget(state.hit, URL.createObjectURL(blob));
+            }
             panel.querySelector('.sbc-selected').textContent = '已替换：' + file.name;
             renderManagerGrid(panel);
         } catch (err) { console.error('[美化管理器] 图片保存失败', err); }
@@ -386,7 +531,7 @@ function setControl(field, value, panel) {
     if (!all[state.key][state.activeLayer]) all[state.key][state.activeLayer] = { hue: 0, saturation: 100, brightness: 100, contrast: 100 };
     all[state.key][state.activeLayer][field] = Number(value);
     save();
-    applyAdjustment(state.hit.el, state.key);
+    if (state.hit.kind === 'css') scheduleOverrideRebuild(); else applyAdjustment(state.hit.el, state.key);
     const out = panel.querySelector(`[data-value="${field}"]`);
     if (out) out.textContent = field === 'hue' ? value + '°' : value + '%';
 }
@@ -405,21 +550,38 @@ async function selectHit(hit) {
     state.hit = hit;
     state.key = targetKey(hit);
     state.panel.querySelector('.sbc-edit').hidden = false;
-    state.panel.querySelector('.sbc-selected').textContent = '正在读取原图…';
-    state.original = await ddSourceOf(hit);
-    state.panel.querySelector('.sbc-selected').textContent = '已选中：' + labelFor(hit);
+    if (hit.kind === 'css') {
+        state.original = hit.url;
+        state.panel.querySelector('.sbc-selected').textContent = '已选中 CSS 规则：' + hit.selector;
+    } else {
+        state.panel.querySelector('.sbc-selected').textContent = '正在读取原图…';
+        state.original = await ddSourceOf(hit);
+        state.panel.querySelector('.sbc-selected').textContent = '已选中：' + labelFor(hit);
+    }
     syncPanel(state.panel);
 }
 async function restoreOriginal(panel) {
-    if (!state.hit || !state.original) return;
-    replaceTarget(state.hit, state.original);
-    await deleteImage(state.key).catch(() => {});
-    delete cfg().images[state.key]; save();
-    panel.querySelector('.sbc-selected').textContent = '已恢复页面原图';
+    if (!state.hit) return;
+    if (state.hit.kind === 'css') {
+        invalidateReplacementUrl(state.key);
+        await deleteImage(state.key).catch(() => {});
+        delete cfg().images[state.key];
+        delete cfg().adjustments[state.key];
+        save();
+        await rebuildOverrideStyle();
+        panel.querySelector('.sbc-selected').textContent = '已清除这条 CSS 规则的改动';
+    } else {
+        if (!state.original) return;
+        replaceTarget(state.hit, state.original);
+        await deleteImage(state.key).catch(() => {});
+        delete cfg().images[state.key]; save();
+        panel.querySelector('.sbc-selected').textContent = '已恢复页面原图';
+    }
     renderManagerGrid(panel);
 }
 function runScan(panel) {
-    state.scanHits = scanPageTargets();
+    // CSS 源的规则排在前面：这是更可靠的来源，优先展示。
+    state.scanHits = [...scanCssTargets(), ...scanPageTargets()];
     state.scanned = true;
     renderManagerGrid(panel);
 }
@@ -501,7 +663,9 @@ async function applyTheme(name, panel) {
     c.images = structuredClone(theme.images);
     c.activeTheme = name;
     save();
+    [...objectUrlCache.keys()].forEach(invalidateReplacementUrl);
     document.querySelectorAll('[data-sbc-applied]').forEach(el => delete el.dataset.sbcApplied);
+    await rebuildOverrideStyle();
     await autoApplyAll();
     panel.querySelector('.sbc-selected').textContent = '已套用方案：' + name;
     renderManagerGrid(panel);
@@ -547,7 +711,9 @@ async function importTheme(file, panel) {
             c.images[key] = { type: info.type, name: info.name };
         }
         save();
+        [...objectUrlCache.keys()].forEach(invalidateReplacementUrl);
         document.querySelectorAll('[data-sbc-applied]').forEach(el => delete el.dataset.sbcApplied);
+        await rebuildOverrideStyle();
         await autoApplyAll();
         panel.querySelector('.sbc-selected').textContent = '已导入方案';
         syncThemeSelect(panel);
@@ -609,6 +775,7 @@ function scheduleAutoApply() {
 function init() {
     cfg();
     mount();
+    rebuildOverrideStyle(); // CSS 规则覆盖层：全局生效一次就够，不用跟着 DOM 变化重复套用
     autoApplyAll();
     const observer = new MutationObserver(() => { mount(); scheduleAutoApply(); });
     observer.observe(document.body, { childList: true, subtree: true });
