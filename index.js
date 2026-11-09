@@ -359,10 +359,20 @@ const CSS_IMAGE_PROPS = {
 };
 function extractCssImageRefs(rule, acc) {
     if (!rule.selectorText || !rule.style) return;
-    for (const [srcProp, overrideProp] of Object.entries(CSS_IMAGE_PROPS)) {
+    const style = rule.style;
+    // 遍历这条规则里声明过的每一个属性，而不是只挑 background-image 等几个固定名字——
+    // 很多美化方案把图片链接存进自定义属性里统一管理，例如
+    //   :root { --sbc-bg: url("..."); }  body { background-image: var(--sbc-bg); }
+    // 这种写法下 background-image 的值是字面上的 "var(--sbc-bg)"，并不含 url(，
+    // 真正带 url() 的是 :root 上那条 --sbc-bg 声明本身。只看固定名单会完全漏掉它。
+    // 直接覆盖这条自定义属性即可：CSS 变量会在每个引用它的地方重新解析，一处改
+    // 全部跟着变，不需要再去找每一个 var(--sbc-bg) 的使用点。
+    for (let i = 0; i < style.length; i++) {
+        const prop = style.item(i);
         let val = '';
-        try { val = rule.style.getPropertyValue(srcProp); } catch {}
+        try { val = style.getPropertyValue(prop); } catch {}
         if (!val || !val.includes('url(')) continue;
+        const overrideProp = CSS_IMAGE_PROPS[prop] || prop;
         const re = /url\((['"]?)(.*?)\1\)/g;
         let m;
         while ((m = re.exec(val))) {
